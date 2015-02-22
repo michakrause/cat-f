@@ -1,0 +1,74 @@
+#!/usr/bin/python
+
+from sys import argv,stdout,stderr,exit
+from time import sleep
+from os import stat
+from getopt import getopt
+
+opts, args = getopt(argv[1:], 'vt:h')
+
+verbose=False
+timeout=0
+
+for o, a in opts:
+    if o == "-v":
+        verbose=True
+    elif o == "-h":
+        print("Usage:", argv[0], "[-v] [-t <seconds>] [-h] filename")
+        print()
+        print("This program writes the given filename on stdout like cat,")
+        print("unlike cat this programm does not close stdout on the end")
+        print("of the given file, instead it waits for more data to be")
+        print("appended to the file (like tail -f does)")
+        print()
+        print("Options:")
+        print(" -h            Display this page")
+        print(" -v            Print verbose information on stderr")
+        print(" -t <seconds>  Exit after no data has been appended for this long")
+        print()
+        print("Examples:")
+        print("Play a movie with mplayer wich is still downloading:")
+        print(" mplayer <(cat-f -t 10 mymovie.avi)")
+        print("To view verbose information, use a fifo file, and a second terminal:")
+        print(" 1. Terminal:")
+        print("  mkfifo fifofile")
+        print("  cat-f -t 10 -v mymovie.avi > fifofile")
+        print(" 2. Terminal:")
+        print("  mplayer fifofile")
+        exit(0)
+    elif o == "-t":
+        timeout=int(a)
+    else:
+        print("Unknown option, use -h to print help")
+        exit(1)
+
+f=open(args[0],"rb")
+
+nothing=0
+
+bsize=102400
+bread=0
+
+while nothing <= timeout or timeout == 0:
+    if (bread * bsize) + bsize < stat(args[0]).st_size:
+        if verbose:
+            stderr.write('Reading from file\n')
+            stderr.flush()
+        buffer=f.read(bsize)
+        if verbose:
+            stderr.write('Writing to stdout\n')
+            stderr.flush()
+        stdout.buffer.write(buffer)
+        bread+=1
+        nothing=0
+    else:
+        if verbose:
+            stderr.write("No data for " + str(nothing) + " Seconds\n")
+            stderr.flush()
+        sleep(1)
+        nothing+=1
+
+if verbose:
+    stderr.write('Timeout reached, writing remaining data to stdout\n')
+    stderr.flush()
+stdout.buffer.write(f.read(bsize))
